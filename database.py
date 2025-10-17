@@ -6,21 +6,23 @@ def init_db():
     _create_group_settings_table()
 
 def _create_schedules_table():
-    """Creates the user schedules table with all fields for normal and habit plans."""
+    """Creates the user schedules table with all necessary fields."""
     conn = sqlite3.connect('sleepybot.db')
     cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS schedules (
             user_id INTEGER PRIMARY KEY,
             chat_id INTEGER NOT NULL,
+            user_name TEXT NOT NULL,
             sleep_time TEXT NOT NULL,
             wake_time TEXT NOT NULL,
-            is_muted INTEGER DEFAULT 0,
             plan_type TEXT DEFAULT 'normal',
+            reminder_sent_date TEXT,
             leave_until TEXT,
             habit_total_leave_days INTEGER DEFAULT 0,
             habit_used_leave_days INTEGER DEFAULT 0,
-            habit_exempt_weekends INTEGER DEFAULT 0
+            habit_exempt_weekends INTEGER DEFAULT 0,
+            habit_end_date TEXT
         )
     """)
     conn.commit()
@@ -43,7 +45,6 @@ def _create_group_settings_table():
     conn.close()
 
 def get_group_settings(chat_id):
-    """Retrieves settings for a specific group, creating them if they don't exist."""
     conn = sqlite3.connect('sleepybot.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -58,7 +59,6 @@ def get_group_settings(chat_id):
     return settings
 
 def set_group_timezone(chat_id, timezone_str):
-    """Sets the timezone for a specific group."""
     conn = sqlite3.connect('sleepybot.db')
     cursor = conn.cursor()
     cursor.execute("INSERT INTO group_settings (chat_id, timezone) VALUES (?, ?) ON CONFLICT(chat_id) DO UPDATE SET timezone=excluded.timezone", (chat_id, timezone_str))
@@ -67,30 +67,29 @@ def set_group_timezone(chat_id, timezone_str):
 
 # --- Schedule Functions ---
 
-def set_schedule(user_id, chat_id, sleep_time, wake_time):
+def set_schedule(user_id, chat_id, user_name, sleep_time, wake_time):
     """Saves or updates a user's normal sleep schedule."""
     conn = sqlite3.connect('sleepybot.db')
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT OR REPLACE INTO schedules (user_id, chat_id, sleep_time, wake_time, plan_type, habit_total_leave_days, habit_used_leave_days, habit_exempt_weekends)
-        VALUES (?, ?, ?, ?, 'normal', 0, 0, 0)
-    """, (user_id, chat_id, sleep_time, wake_time))
+        INSERT OR REPLACE INTO schedules (user_id, chat_id, user_name, sleep_time, wake_time, plan_type)
+        VALUES (?, ?, ?, ?, ?, 'normal')
+    """, (user_id, chat_id, user_name, sleep_time, wake_time))
     conn.commit()
     conn.close()
 
-def set_full_habit_schedule(user_id, chat_id, sleep_time, wake_time, total_leave, exempt_weekends):
+def set_full_habit_schedule(user_id, chat_id, user_name, sleep_time, wake_time, total_leave, exempt_weekends, end_date):
     """Saves or updates a user's full habit sleep schedule."""
     conn = sqlite3.connect('sleepybot.db')
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT OR REPLACE INTO schedules (user_id, chat_id, sleep_time, wake_time, plan_type, habit_total_leave_days, habit_used_leave_days, habit_exempt_weekends)
-        VALUES (?, ?, ?, ?, 'habit', ?, 0, ?)
-    """, (user_id, chat_id, sleep_time, wake_time, total_leave, exempt_weekends))
+        INSERT OR REPLACE INTO schedules (user_id, chat_id, user_name, sleep_time, wake_time, plan_type, habit_total_leave_days, habit_used_leave_days, habit_exempt_weekends, habit_end_date)
+        VALUES (?, ?, ?, ?, ?, 'habit', ?, 0, ?, ?)
+    """, (user_id, chat_id, user_name, sleep_time, wake_time, total_leave, exempt_weekends, end_date))
     conn.commit()
     conn.close()
 
 def get_schedule(user_id):
-    """Retrieves a user's full schedule, including plan type."""
     conn = sqlite3.connect('sleepybot.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -100,7 +99,6 @@ def get_schedule(user_id):
     return schedule
 
 def get_all_schedules():
-    """Retrieves all sleep schedules from the database."""
     conn = sqlite3.connect('sleepybot.db')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
@@ -110,7 +108,6 @@ def get_all_schedules():
     return schedules
 
 def remove_schedule(user_id):
-    """Removes a user's sleep schedule from the database."""
     conn = sqlite3.connect('sleepybot.db')
     cursor = conn.cursor()
     cursor.execute("DELETE FROM schedules WHERE user_id = ?", (user_id,))
@@ -119,11 +116,11 @@ def remove_schedule(user_id):
     conn.close()
     return rows_deleted
 
-def update_mute_status(user_id, is_muted: bool):
-    """Updates the mute status for a specific user."""
+def update_reminder_sent(user_id, date_str):
+    """Marks that a reminder has been sent for the user today."""
     conn = sqlite3.connect('sleepybot.db')
     cursor = conn.cursor()
-    cursor.execute("UPDATE schedules SET is_muted = ? WHERE user_id = ?", (int(is_muted), user_id))
+    cursor.execute("UPDATE schedules SET reminder_sent_date = ? WHERE user_id = ?", (date_str, user_id))
     conn.commit()
     conn.close()
 
