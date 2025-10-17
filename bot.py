@@ -138,10 +138,6 @@ async def init_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if chat.type == 'private':
         await update.message.reply_text("哥哥，这个命令是用来设定别人的东西的，在群里用哦。")
         return
-    administrators = await context.bot.get_chat_administrators(chat.id)
-    if not any(admin.status == 'creator' and admin.user.id == user.id for admin in administrators):
-        await update.message.reply_text("嗯？这种事应该让群主来做吧。")
-        return
     if not context.args or len(context.args) != 1:
         await update.message.reply_text("用法不对啦。应该是 /init <时区>，例如: /init Asia/Shanghai")
         return
