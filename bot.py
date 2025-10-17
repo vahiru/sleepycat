@@ -241,12 +241,10 @@ async def admin_remove_command(update: Update, context: ContextTypes.DEFAULT_TYP
         await update.message.reply_text("此命令仅在群组中可用。")
         return
     
-    settings = db.get_group_settings(chat.id)
     administrators = await context.bot.get_chat_administrators(chat.id)
-    is_owner = any(admin.status == 'creator' and admin.user.id == user.id for admin in administrators)
     is_admin = any(admin.user.id == user.id for admin in administrators)
 
-    if not is_owner and not (is_admin and settings['admin_can_break_habit']):
+    if not is_admin:
         await update.message.reply_text("只有哥哥指定的管理员才能命令我。")
         return
     if not update.message.reply_to_message:
